@@ -1,5 +1,7 @@
 # azure/bicep-deploy
 
+Azure Deploy GitHub Action
+
 Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at [https://github.com/azure/bicep-deploy](https://github.com/azure/bicep-deploy).
 
 ## Versions

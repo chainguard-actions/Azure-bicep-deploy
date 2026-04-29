@@ -1,5 +1,6 @@
 {
   "owner": "azure",
   "name": "bicep-deploy",
-  "visibility": ""
+  "visibility": "internal",
+  "description": "Azure Deploy GitHub Action"
 }
