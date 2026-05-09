@@ -2,5 +2,6 @@
   "owner": "azure",
   "name": "bicep-deploy",
   "visibility": "internal",
-  "description": "Azure Deploy GitHub Action"
+  "description": "Azure Deploy GitHub Action",
+  "block_publish": false
 }
