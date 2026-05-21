@@ -8,7 +8,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
-| v2.2.0 | [`v2.2.0`](https://github.com/chainguard-actions/bicep-deploy/tree/v2.2.0) | — |
+| v2.2.0 | [`v2.2.0`](https://github.com/chainguard-actions/azure--bicep-deploy/tree/v2.2.0) | — |
 
 ## Privacy
 
