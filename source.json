@@ -1,6 +1,6 @@
 {
-  "owner": "azure",
+  "owner": "Azure",
   "repo": "bicep-deploy",
   "version": "",
-  "url": "https://github.com/azure/bicep-deploy"
+  "url": "https://github.com/Azure/bicep-deploy"
 }

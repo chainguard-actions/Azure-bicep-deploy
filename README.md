@@ -1,14 +1,14 @@
-# azure/bicep-deploy
+# Azure/bicep-deploy
 
 Azure Deploy GitHub Action
 
-Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at [https://github.com/azure/bicep-deploy](https://github.com/azure/bicep-deploy).
+Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at [https://github.com/Azure/bicep-deploy](https://github.com/Azure/bicep-deploy).
 
 ## Versions
 
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
-| v2.2.0 | [`v2.2.0`](https://github.com/chainguard-actions/azure-bicep-deploy/tree/v2.2.0) | — |
+| v2.2.0 | [`v2.2.0`](https://github.com/chainguard-actions/Azure-bicep-deploy/tree/v2.2.0) | — |
 
 ## Privacy
 
