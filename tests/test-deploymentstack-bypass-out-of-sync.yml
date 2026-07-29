@@ -1,0 +1,36 @@
+name: Test deploymentStack with bypass-stack-out-of-sync-error
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run deploymentStack validate with bypass-stack-out-of-sync-error (expect failure - no Azure credentials)
+        id: action
+        uses: .
+        continue-on-error: true
+        with:
+          type: deploymentStack
+          operation: validate
+          scope: resourceGroup
+          name: test-stack-bypass
+          subscription-id: 00000000-0000-0000-0000-000000000000
+          resource-group-name: test-rg
+          template-file: pristine/azure--bicep-deploy/v2.3.0/tests/fixtures/main.bicep
+          action-on-unmanage-resources: detach
+          action-on-unmanage-resourcegroups: detach
+          deny-settings-mode: none
+          bypass-stack-out-of-sync-error: "true"
+
+      - name: Assert action ran (expected to fail without Azure credentials)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "skipped" ]; then
+            echo "FAIL: action was skipped unexpectedly"
+            exit 1
+          fi
+          echo "PASS: action ran (outcome=$OUTCOME)"

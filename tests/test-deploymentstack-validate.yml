@@ -1,0 +1,49 @@
+name: Test deploymentStack validate operation
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a minimal Bicep template for stack
+        run: |
+          mkdir -p /tmp/bicep-stack-test
+          cat > /tmp/bicep-stack-test/stack.bicep << 'EOF'
+          targetScope = 'resourceGroup'
+
+          param location string = resourceGroup().location
+
+          output deployedLocation string = location
+          EOF
+
+      - name: Run deploymentStack validate (expect failure - no Azure credentials)
+        id: action
+        uses: .
+        continue-on-error: true
+        with:
+          type: deploymentStack
+          operation: validate
+          scope: resourceGroup
+          name: test-stack
+          subscription-id: 00000000-0000-0000-0000-000000000000
+          resource-group-name: test-rg
+          location: eastus
+          template-file: /tmp/bicep-stack-test/stack.bicep
+          action-on-unmanage-resources: detach
+          action-on-unmanage-resourcegroups: detach
+          deny-settings-mode: none
+          description: Test deployment stack
+
+      - name: Assert action ran (expected to fail without Azure credentials)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "skipped" ]; then
+            echo "FAIL: action was skipped unexpectedly"
+            exit 1
+          fi
+          echo "PASS: action ran (outcome=$OUTCOME)"

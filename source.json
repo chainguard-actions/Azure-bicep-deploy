@@ -1,6 +1,16 @@
 {
-  "owner": "Azure",
+  "owner": "azure",
   "repo": "bicep-deploy",
-  "version": "",
-  "url": "https://github.com/Azure/bicep-deploy"
+  "version": "v2.3.0",
+  "commit_sha": "66910e9c5c7733c33a1cd605030d02234b3bc4ed",
+  "url": "https://github.com/azure/bicep-deploy",
+  "policy_sha": "d636be7e43ef829af6e853da6b3c7566db9f72fe",
+  "test_policy_sha": "843adf9e4b8f85d0c08b27b9d0b09dd094b54702",
+  "test_agent_version": "2",
+  "harden_agent_version": "2",
+  "node_artifact": {
+    "gcs_uri": "gs://prod-actions-node-artifacts/node-artifacts/Azure/bicep-deploy/v2.3.0/sha256-db2e31da732332932769db3eae329afbc5f3fcb714abacd56ad470f53241ea6b.tar.gz",
+    "sha256": "db2e31da732332932769db3eae329afbc5f3fcb714abacd56ad470f53241ea6b",
+    "size_bytes": 6554801
+  }
 }

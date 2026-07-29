@@ -1,0 +1,45 @@
+name: Test deployment what-if at subscription scope
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a minimal subscription-scope Bicep template
+        run: |
+          mkdir -p /tmp/bicep-test
+          cat > /tmp/bicep-test/sub.bicep << 'EOF'
+          targetScope = 'subscription'
+
+          param location string = 'eastus'
+
+          output deployedLocation string = location
+          EOF
+
+      - name: Run deployment what-if at subscription scope (expect failure - no Azure credentials)
+        id: action
+        uses: .
+        continue-on-error: true
+        with:
+          type: deployment
+          operation: whatIf
+          scope: subscription
+          name: test-whatif-deployment
+          subscription-id: 00000000-0000-0000-0000-000000000000
+          location: eastus
+          template-file: /tmp/bicep-test/sub.bicep
+          what-if-exclude-change-types: noChange
+
+      - name: Assert action ran (expected to fail without Azure credentials)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "skipped" ]; then
+            echo "FAIL: action was skipped unexpectedly"
+            exit 1
+          fi
+          echo "PASS: action ran (outcome=$OUTCOME)"

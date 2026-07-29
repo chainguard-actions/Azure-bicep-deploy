@@ -1,0 +1,65 @@
+name: Upload bicep-deploy-common Package
+
+on: workflow_dispatch
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  upload-package:
+    name: Upload bicep-deploy-common Package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install Dependencies for bicep-deploy-common
+        id: install-common
+        working-directory: ./packages/bicep-deploy-common
+        run: npm ci
+
+      - name: Build bicep-deploy-common Package
+        id: build
+        working-directory: ./packages/bicep-deploy-common
+        run: |
+          rm -Rf dist
+          npm run build
+
+      - name: Create package tarball
+        id: pack
+        working-directory: ./packages/bicep-deploy-common
+        run: |
+          packOutput=$(npm pack --json)
+          safe_filename=$(printf '%s' "$(echo "$packOutput" | jq -r '.[0].filename')" | tr -d '\n\r')
+          safe_version=$(printf '%s' "$(echo "$packOutput" | jq -r '.[0].version')" | tr -d '\n\r')
+          echo "filename=$safe_filename" >> "$GITHUB_OUTPUT"
+          echo "version=$safe_version" >> "$GITHUB_OUTPUT"
+
+      # Using upload steps defined for the Partner Release Pipeline (https://aka.ms/azsdk/partner-release-pipeline)
+      # azuresdkpartnerdrops is the managed identity that we use to upload to the partner drop folder
+      - name: Login to azuresdkpartnerdrops
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3
+        with:
+          client-id: ${{ secrets.AZURESDKPARTNERDROPS_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURESDKPARTNERDROPS_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURESDKPARTNERDROPS_SUBSCRIPTION_ID }}
+
+      # Upload bicep-deploy-common package to partner drop folder to allow external distribution under the @azure scope
+      - name: Upload files to partner drop folder
+        working-directory: ./packages/bicep-deploy-common
+        env:
+          PACK_FILENAME: ${{ steps.pack.outputs.filename }}
+          PACK_VERSION: ${{ steps.pack.outputs.version }}
+        run: |
+          echo "Uploading $PACK_FILENAME to partner drop folder at drops/bicep-deploy-common/npm/$PACK_VERSION..."
+          az storage blob upload -f "$PACK_FILENAME" -c "drops/bicep-deploy-common/npm/$PACK_VERSION" --account-name azuresdkpartnerdrops --auth-mode login
