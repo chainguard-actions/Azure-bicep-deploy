@@ -1,0 +1,47 @@
+name: Test deployment validate with masked-outputs input
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a Bicep template with outputs
+        run: |
+          mkdir -p /tmp/bicep-masked-test
+          cat > /tmp/bicep-masked-test/main.bicep << 'EOF'
+          targetScope = 'resourceGroup'
+
+          param location string = 'eastus'
+
+          output secretValue string = 'sensitive-data'
+          output publicValue string = location
+          EOF
+
+      - name: Run deployment validate with masked-outputs (expect failure - no Azure credentials)
+        id: action
+        uses: .
+        continue-on-error: true
+        with:
+          type: deployment
+          operation: validate
+          scope: resourceGroup
+          name: test-masked-deployment
+          subscription-id: 00000000-0000-0000-0000-000000000000
+          resource-group-name: test-rg
+          location: eastus
+          template-file: /tmp/bicep-masked-test/main.bicep
+          masked-outputs: secretValue
+
+      - name: Assert action ran (expected to fail without Azure credentials)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "skipped" ]; then
+            echo "FAIL: action was skipped unexpectedly"
+            exit 1
+          fi
+          echo "PASS: action ran (outcome=$OUTCOME)"

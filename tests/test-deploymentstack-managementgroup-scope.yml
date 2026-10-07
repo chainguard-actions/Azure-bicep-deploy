@@ -1,24 +1,36 @@
-name: Test deploymentStack with managementGroup scope and action-on-unmanage-managementgroup
+name: Test deploymentStack at managementGroup scope (action-on-unmanage-managementgroup input)
 on:
   workflow_dispatch:
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Run deploymentStack validate at managementGroup scope (expect failure - no Azure credentials)
+      - name: Create a minimal management-group-scope Bicep template
+        run: |
+          mkdir -p /tmp/bicep-mg-stack-test
+          cat > /tmp/bicep-mg-stack-test/mg.bicep << 'EOF'
+          targetScope = 'managementGroup'
+
+          param location string = 'eastus'
+
+          output deployedLocation string = location
+          EOF
+
+      - name: Run deploymentStack create at managementGroup scope (expect failure - no Azure credentials)
         id: action
         uses: .
         continue-on-error: true
         with:
           type: deploymentStack
-          operation: validate
+          operation: create
           scope: managementGroup
           name: test-mg-stack
           management-group-id: test-mg-id
           location: eastus
-          template-file: pristine/azure--bicep-deploy/v2.3.0/tests/fixtures/main.bicep
+          template-file: /tmp/bicep-mg-stack-test/mg.bicep
           action-on-unmanage-resources: detach
           action-on-unmanage-resourcegroups: detach
           action-on-unmanage-managementgroup: detach
