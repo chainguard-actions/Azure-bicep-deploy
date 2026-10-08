@@ -1,0 +1,197 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+import { isRestError } from "@azure/core-rest-pipeline";
+
+import { DeployConfig } from "./config";
+import {
+  deploymentCreate,
+  deploymentValidate,
+  deploymentWhatIf,
+} from "./deployments";
+import { stackCreate, stackDelete, stackValidate } from "./stacks";
+import { formatWhatIfOperationResult } from "./whatif";
+import {
+  logDiagnostics,
+  validateFileScope,
+  tryWithErrorHandling,
+  getScopedId,
+} from "./utils";
+import { getTemplateAndParameters, ParsedFiles, BicepCache } from "./file";
+import { Logger } from "./logging";
+import { OutputSetter, setOutputs } from "./output";
+import {
+  errorMessages,
+  ErrorMessageConfig,
+  setErrorMessages,
+} from "./errorMessages";
+import {
+  loggingMessages,
+  LoggingMessageConfig,
+  setLoggingMessages,
+} from "./loggingMessages";
+
+export async function execute(
+  config: DeployConfig,
+  logger: Logger,
+  outputSetter: OutputSetter,
+  bicepCache: BicepCache,
+  customErrorMessages?: Partial<ErrorMessageConfig>,
+  customLoggingMessages?: Partial<LoggingMessageConfig>,
+) {
+  if (customErrorMessages) {
+    setErrorMessages(customErrorMessages);
+  }
+
+  if (customLoggingMessages) {
+    setLoggingMessages(customLoggingMessages);
+  }
+
+  let files: ParsedFiles = {};
+
+  try {
+    // Log what operation we're starting
+    const scopedId = getScopedId(config);
+    logger.logExternalOutput(
+      loggingMessages.startingOperation(
+        config.type,
+        config.operation,
+        config.scope.type,
+        scopedId,
+        config.name ?? "",
+      ),
+      { source: "repository", level: "info" },
+    );
+
+    if (config.operation !== "delete") {
+      // Get template and parameters only for non-delete operations
+      files = await getTemplateAndParameters(config, logger, bicepCache);
+      validateFileScope(config, files);
+    } else if (config.parametersFile || config.templateFile) {
+      // Log a message if files are provided for a delete operation
+      logger.logWarning(loggingMessages.filesIgnoredForDelete);
+    }
+
+    switch (config.type) {
+      case "deployment": {
+        switch (config.operation) {
+          case "create": {
+            await tryWithErrorHandling(
+              async () => {
+                const result = await deploymentCreate(config, files, logger);
+                setOutputs(config, outputSetter, result?.properties?.outputs);
+              },
+              error => {
+                logger.logExternalOutput(JSON.stringify(error, null, 2), {
+                  source: "remote",
+                  level: "error",
+                });
+                outputSetter.setFailed(errorMessages.createFailed);
+              },
+              logger,
+            );
+            break;
+          }
+          case "validate": {
+            await tryWithErrorHandling(
+              async () => {
+                const result = await deploymentValidate(config, files, logger);
+                logDiagnostics(result?.properties?.diagnostics ?? [], logger);
+              },
+              error => {
+                logger.logExternalOutput(JSON.stringify(error, null, 2), {
+                  source: "remote",
+                  level: "error",
+                });
+                outputSetter.setFailed(errorMessages.validationFailed);
+              },
+              logger,
+            );
+            break;
+          }
+          case "whatIf": {
+            await tryWithErrorHandling(
+              async () => {
+                const result = await deploymentWhatIf(config, files, logger);
+                const formatted = formatWhatIfOperationResult(result, "ansii");
+                logger.logExternalOutput(formatted, {
+                  source: "remote",
+                  level: "info",
+                });
+                logDiagnostics(result.diagnostics ?? [], logger);
+              },
+              error => {
+                logger.logExternalOutput(JSON.stringify(error, null, 2), {
+                  source: "remote",
+                  level: "error",
+                });
+                outputSetter.setFailed(errorMessages.whatIfFailed);
+              },
+              logger,
+            );
+            break;
+          }
+        }
+        break;
+      }
+      case "deploymentStack": {
+        switch (config.operation) {
+          case "create": {
+            await tryWithErrorHandling(
+              async () => {
+                const result = await stackCreate(config, files, logger);
+                setOutputs(config, outputSetter, result?.properties?.outputs);
+              },
+              error => {
+                logger.logExternalOutput(JSON.stringify(error, null, 2), {
+                  source: "remote",
+                  level: "error",
+                });
+                outputSetter.setFailed(errorMessages.createFailed);
+              },
+              logger,
+            );
+            break;
+          }
+          case "validate": {
+            await tryWithErrorHandling(
+              () => stackValidate(config, files, logger),
+              error => {
+                logger.logExternalOutput(JSON.stringify(error, null, 2), {
+                  source: "remote",
+                  level: "error",
+                });
+                outputSetter.setFailed(errorMessages.validationFailed);
+              },
+              logger,
+            );
+            break;
+          }
+          case "delete": {
+            await stackDelete(config, logger);
+            break;
+          }
+        }
+        break;
+      }
+    }
+  } catch (error) {
+    if (isRestError(error) && error.response?.bodyAsText) {
+      const correlationId = error.response.headers.get(
+        "x-ms-correlation-request-id",
+      );
+      logger.logExternalOutput(
+        errorMessages.requestFailedCorrelation(correlationId ?? "unknown"),
+        { source: "remote", level: "error" },
+      );
+
+      const responseBody = JSON.parse(error.response.bodyAsText);
+      logger.logExternalOutput(JSON.stringify(responseBody, null, 2), {
+        source: "remote",
+        level: "error",
+      });
+    }
+
+    outputSetter.setFailed(errorMessages.operationFailed);
+    throw error;
+  }
+}

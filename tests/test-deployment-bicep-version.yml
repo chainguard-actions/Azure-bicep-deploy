@@ -1,0 +1,45 @@
+name: Test deployment with bicep-version input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a minimal ARM template file
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/tests/fixtures"
+          cat > "$GITHUB_WORKSPACE/tests/fixtures/bicep-version-main.json" <<'EOF'
+          {
+            "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+            "contentVersion": "1.0.0.0",
+            "resources": []
+          }
+          EOF
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          type: "deployment"
+          operation: "validate"
+          scope: "resourceGroup"
+          subscription-id: "00000000-0000-0000-0000-000000000000"
+          resource-group-name: "test-rg"
+          template-file: "tests/fixtures/bicep-version-main.json"
+          bicep-version: "0.38.5"
+      - name: Assert action failed gracefully (no Azure credentials available)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should fail because there are no Azure credentials in the test environment.
+          # Input validation passes (bicep-version is provided), but the Azure API call fails.
+          if [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully as expected (no Azure credentials)"
+          elif [ "$OUTCOME" = "success" ]; then
+            echo "FAIL: action unexpectedly succeeded — Azure credentials should not be available"
+            exit 1
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
