@@ -1,0 +1,59 @@
+name: Test invalid deny-settings-apply-to-child-scopes is rejected
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          type: deploymentStack
+          operation: validate
+          scope: resourceGroup
+          subscription-id: 00000000-0000-0000-0000-000000000000
+          resource-group-name: rg-test
+          action-on-unmanage-resources: detach
+          deny-settings-mode: denyDelete
+          deny-settings-excluded-actions: Microsoft.Resources/tags/write, Microsoft.Storage/storageAccounts/read
+          deny-settings-excluded-principals: 11111111-1111-1111-1111-111111111111
+          deny-settings-apply-to-child-scopes: notABool
+      - name: Assert action failed on invalid deny-settings-apply-to-child-scopes
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected failure for invalid 'deny-settings-apply-to-child-scopes'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert error message (direct invocation of shipped dist)
+        run: |
+          if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(parseInt(process.versions.node)>=20?0:1)'; then
+            echo "SKIP: suitable node not available"
+            exit 0
+          fi
+          set +e
+          out=$(env -i PATH="$PATH" HOME="$HOME" \
+            "INPUT_TYPE=deploymentStack" "INPUT_OPERATION=validate" "INPUT_SCOPE=resourceGroup" \
+            "INPUT_SUBSCRIPTION-ID=00000000-0000-0000-0000-000000000000" \
+            "INPUT_RESOURCE-GROUP-NAME=rg-test" \
+            "INPUT_ACTION-ON-UNMANAGE-RESOURCES=detach" \
+            "INPUT_DENY-SETTINGS-MODE=denyDelete" \
+            "INPUT_DENY-SETTINGS-EXCLUDED-ACTIONS=Microsoft.Resources/tags/write, Microsoft.Storage/storageAccounts/read" \
+            "INPUT_DENY-SETTINGS-EXCLUDED-PRINCIPALS=11111111-1111-1111-1111-111111111111" \
+            "INPUT_DENY-SETTINGS-APPLY-TO-CHILD-SCOPES=notABool" \
+            node "$GITHUB_WORKSPACE/dist/index.cjs" 2>&1)
+          rc=$?
+          set -e
+          echo "$out"
+          echo "rc: $rc"
+          if [ "$rc" -eq 0 ]; then echo "FAIL: expected non-zero exit"; exit 1; fi
+          if ! echo "$out" | grep -q "Input 'deny-settings-apply-to-child-scopes' must be a boolean value"; then
+            echo "FAIL: expected boolean error for 'deny-settings-apply-to-child-scopes'"
+            exit 1
+          fi
+          echo "PASS"

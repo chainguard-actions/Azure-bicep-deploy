@@ -1,0 +1,53 @@
+name: Test non-boolean bypass-stack-out-of-sync-error is rejected
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          type: deploymentStack
+          operation: create
+          scope: subscription
+          subscription-id: 00000000-0000-0000-0000-000000000000
+          location: eastus
+          action-on-unmanage-resources: delete
+          deny-settings-mode: denyDelete
+          bypass-stack-out-of-sync-error: maybe
+      - name: Assert action failed on non-boolean input
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected failure for non-boolean bypass-stack-out-of-sync-error"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert error message (direct invocation of shipped dist)
+        run: |
+          if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(parseInt(process.versions.node)>=20?0:1)'; then
+            echo "SKIP: suitable node not available"
+            exit 0
+          fi
+          set +e
+          out=$(env -i PATH="$PATH" HOME="$HOME" \
+            "INPUT_TYPE=deploymentStack" "INPUT_OPERATION=create" "INPUT_SCOPE=subscription" \
+            "INPUT_SUBSCRIPTION-ID=00000000-0000-0000-0000-000000000000" \
+            "INPUT_ACTION-ON-UNMANAGE-RESOURCES=delete" \
+            "INPUT_BYPASS-STACK-OUT-OF-SYNC-ERROR=maybe" \
+            node "$GITHUB_WORKSPACE/dist/index.cjs" 2>&1)
+          rc=$?
+          set -e
+          echo "$out"
+          echo "rc: $rc"
+          if [ "$rc" -eq 0 ]; then echo "FAIL: expected non-zero exit"; exit 1; fi
+          if ! echo "$out" | grep -q "Input 'bypass-stack-out-of-sync-error' must be a boolean value"; then
+            echo "FAIL: expected boolean error"
+            exit 1
+          fi
+          echo "PASS"
